@@ -2,7 +2,21 @@ pipeline {
 
     agent any
 
+    environment {
+        PATH = "/usr/local/bin:/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin"
+    }
+
     stages {
+
+        stage('Check Environment') {
+            steps {
+                sh 'echo $PATH'
+                sh 'which docker'
+                sh 'docker --version'
+                sh 'which kubectl'
+                sh 'kubectl version --client'
+            }
+        }
 
         stage('Build Docker') {
             steps {
@@ -23,7 +37,5 @@ pipeline {
                 sh 'kubectl apply -f service.yaml'
             }
         }
-
     }
-
 }
