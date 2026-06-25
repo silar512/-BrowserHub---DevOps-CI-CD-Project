@@ -1,53 +1,90 @@
 pipeline {
+    agent any
 
-agent any
+    environment {
+        IMAGE_NAME = "browserhub"
+        CONTAINER_NAME = "browserhub"
+    }
 
-stages {
+    stages {
 
-stage('Clone') {
+        stage('Verify Workspace') {
+            steps {
+                sh 'pwd'
+                sh 'ls -la'
+            }
+        }
 
-steps {
+        stage('Build Docker Image') {
+            steps {
+                sh '''
+                docker build -t $IMAGE_NAME .
+                '''
+            }
+        }
 
-git 'https://github.com/yourusername/BrowserHub.git'
+        stage('Stop Old Container') {
+            steps {
+                sh '''
+                docker rm -f $CONTAINER_NAME || true
+                '''
+            }
+        }
 
-}
+        stage('Run Docker Container') {
+            steps {
+                sh '''
+                docker run -d \
+                --name $CONTAINER_NAME \
+                -p 8081:80 \
+                $IMAGE_NAME
+                '''
+            }
+        }
 
-}
+        stage('Check Docker') {
+            steps {
+                sh '''
+                docker ps
+                '''
+            }
+        }
 
-stage('Build Docker') {
+        stage('Deploy to Kubernetes') {
+            steps {
+                sh '''
+                kubectl apply -f deployment.yaml
+                kubectl apply -f service.yaml
+                '''
+            }
+        }
 
-steps {
+        stage('Verify Kubernetes') {
+            steps {
+                sh '''
+                kubectl get pods
+                kubectl get svc
+                '''
+            }
+        }
+    }
 
-sh 'docker build -t browserhub .'
+    post {
 
-}
+        success {
+            echo '========================================='
+            echo ' BrowserHub deployed successfully!'
+            echo ' Docker : http://localhost:8081'
+            echo '========================================='
+        }
 
-}
+        failure {
+            echo 'Pipeline Failed!'
+        }
 
-stage('Run Container') {
-
-steps {
-
-sh 'docker rm -f browserhub || true'
-
-sh 'docker run -d --name browserhub -p 8080:80 browserhub'
-
-}
-
-}
-
-stage('Deploy Kubernetes') {
-
-steps {
-
-sh 'kubectl apply -f deployment.yaml'
-
-sh 'kubectl apply -f service.yaml'
-
-}
-
-}
-
-}
-
+        always {
+            sh 'docker ps || true'
+            sh 'kubectl get pods || true'
+        }
+    }
 }
